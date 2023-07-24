@@ -1,14 +1,20 @@
-# Talend custom component for tsurugidb alpha
+# Talend custom component alpja for Tsurugi DB
+
+7/24 Tsurugi への SELECT 実行と tLogRow コンポーネントへの連結のみ実行可能。ただし製品販のみでTOSでは Tsurugi へのアクセスは行えているが、Studio内でのコンポーネント連携でエラーとなる。原因はTOSでは実行時のcomponent-sdk関連のjarがStudio7.3当時のもので実行されるためと思われる。1.37.0
+
 ## prepare
 ### Talend Studio
-- TalendStudio8.0.1にて検証。有償版のため購入が推奨。
-- カスタムコンポーネント更新時にStudioの再起動を省くためにStudioのconfig.iniに以下を追加しておく。
+- 事前の設定変更
+  - TalendStudio8.0.1にて検証。有償版のため購入が推奨。
+  - カスタムコンポーネント更新時にStudioの再起動を省くためにStudioのconfig.iniに以下を追加しておく。
   ファイル； /Applications/TOSDI-8.0.1/studio/configuration/config.ini
   ```component.environment=dev```
-- xmiファイルの置き換え。GitHub/tdi-studio-se のファイルと置き換える。->効果なし！
+
+- 未解決
+  - xmiファイルの置き換え。GitHub/tdi-studio-se のファイルと置き換える。->効果なし！
   ファイル： /Applications/TOSDI-8.0.1/studio/configuration/MavenUriIndex.xml
-- 課題
   - TOS8.0.1ではStudioでの実行時にエラー。古いComponentKitの1.37で実行されるため。1.55へのアップデート方法が不明。
+
 ### 開発環境
 - VisualStudioCode
 - （補足）サイトではIntellJを推奨。最初の雛形はIntellJのpluginまたはTalendのサイトで生成する。
@@ -22,8 +28,9 @@ company-component@nkzwMBP2020$ ./mvnw talend-component:deploy-in-studio -Dtalend
 # to TOS（実行時にエラー）
 company-component@nkzwMBP2020$ ./mvnw talend-component:deploy-in-studio -Dtalend.component.studioHome="/Applications/TOSDI-8.0.1/studio"
 ```
-## 動作
-### Input
+
+## 動作説明
+### Input component
 CompanyInputSource#init
 - 外部から取得したデータを保持
 
@@ -31,7 +38,7 @@ CompanyInputSource#next
 - １回のCallで保持しているデータから１レコードを返す。
 - 保持しているデータがなくなったらnullを返す。
 
-### Output
+### Output component
 CompanyOutputOutput#init()
 - 最初に１回呼ばれる。（何の最初か？）
 
@@ -79,6 +86,7 @@ https://talend.github.io/component-runtime/main/latest/studio-schema.html
 
 ### thsurugi実行時エラーのメッセージ
 query文字列エラー：select -> seect
+間違ったSQLがログに出されると嬉しい。
 ```
 ジョブMyComponentを16:07 16/07/2023で開始します。
 [statistics] connecting to socket on port 3842

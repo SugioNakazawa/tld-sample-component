@@ -1,0 +1,5 @@
+= A Component Family
+
+build
+company-component@nkzwMBP2020$ ./mvnw clean install
+company-component@nkzwMBP2020$ ./mvnw talend-component:deploy-in-studio -Dtalend.component.studioHome="/Applications/TOSDI-8.0.1/studio"

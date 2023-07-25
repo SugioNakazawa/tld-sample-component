@@ -1,20 +1,18 @@
 package com.company.talend.components.output;
 
 import java.io.Serializable;
-import java.util.List;
-
-import com.company.talend.components.dataset.CustomDataset;
 
 import org.talend.sdk.component.api.configuration.Option;
 import org.talend.sdk.component.api.configuration.ui.layout.GridLayout;
-import org.talend.sdk.component.api.configuration.ui.widget.Structure;
 import org.talend.sdk.component.api.meta.Documentation;
 
+import com.company.talend.components.dataset.CustomDataset;
+
 @GridLayout({
-    // the generated layout put one configuration entry per line,
-    // customize it as much as needed
-    @GridLayout.Row({ "dataset" }),
-    @GridLayout.Row({ "timeout" })
+        // the generated layout put one configuration entry per line,
+        // customize it as much as needed
+        @GridLayout.Row({ "dataset" }),
+        @GridLayout.Row({ "transactionMode" })
 })
 @Documentation("TODO fill the documentation for this configuration")
 public class CompanyOutputOutputConfiguration implements Serializable {
@@ -24,7 +22,7 @@ public class CompanyOutputOutputConfiguration implements Serializable {
 
     @Option
     @Documentation("TODO fill the documentation for this parameter")
-    private int timeout;
+    private TransactionMode transactionMode = TransactionMode.Insert;
 
     public CustomDataset getDataset() {
         return dataset;
@@ -35,12 +33,18 @@ public class CompanyOutputOutputConfiguration implements Serializable {
         return this;
     }
 
-    public int getTimeout() {
-        return timeout;
+    public TransactionMode getTransactionMode() {
+        return transactionMode;
     }
 
-    public CompanyOutputOutputConfiguration setTimeout(int timeout) {
-        this.timeout = timeout;
+    public CompanyOutputOutputConfiguration setTransactionMode(TransactionMode transactionMode) {
+        this.transactionMode = transactionMode;
         return this;
+    }
+
+    public enum TransactionMode {
+        Insert,
+        Update,
+        Delete
     }
 }

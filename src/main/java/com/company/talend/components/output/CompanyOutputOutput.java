@@ -2,7 +2,9 @@ package com.company.talend.components.output;
 
 import static org.talend.sdk.component.api.component.Icon.IconType.CUSTOM;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.net.URI;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -19,8 +21,17 @@ import org.talend.sdk.component.api.processor.Processor;
 import org.talend.sdk.component.api.record.Record;
 
 import com.company.talend.components.service.CompanyComponentService;
+import com.tsurugidb.iceaxe.TsurugiConnector;
+import com.tsurugidb.iceaxe.session.TsurugiSession;
+import com.tsurugidb.iceaxe.sql.parameter.TgBindParameters;
+import com.tsurugidb.iceaxe.sql.parameter.TgBindVariables;
+import com.tsurugidb.iceaxe.sql.parameter.TgParameterMapping;
+import com.tsurugidb.iceaxe.transaction.manager.TgTmSetting;
+import com.tsurugidb.iceaxe.transaction.option.TgTxOption;
+import com.tsurugidb.tsubakuro.channel.common.connection.UsernamePasswordCredential;
 
-@Version(1) // default version is 1, if some configuration changes happen between 2 versions you can add a migrationHandler
+@Version(1) // default version is 1, if some configuration changes happen between 2 versions
+            // you can add a migrationHandler
 @Icon(value = CUSTOM, custom = "CompanyOutput") // icon is located at src/main/resources/icons/CompanyOutput.svg
 @Processor(name = "CompanyOutput")
 @Documentation("TODO fill the documentation for this processor")
@@ -28,8 +39,11 @@ public class CompanyOutputOutput implements Serializable {
     private final CompanyOutputOutputConfiguration configuration;
     private final CompanyComponentService service;
 
+    private TsurugiSession session;
+    private TgBindParameters ps;
+
     public CompanyOutputOutput(@Option("configuration") final CompanyOutputOutputConfiguration configuration,
-                          final CompanyComponentService service) {
+            final CompanyComponentService service) {
         this.configuration = configuration;
         this.service = service;
     }
@@ -40,11 +54,28 @@ public class CompanyOutputOutput implements Serializable {
         // this is where you can establish a connection for instance
         // Note: if you don't need it you can delete it
         System.out.println("CompanyOutputOutput#init");
+
+        var endpoint = URI.create("tcp://" + configuration.getDataset().getDatastore().getUrl());
+        var credential = new UsernamePasswordCredential("user", "password");
+        var connector = TsurugiConnector.of(endpoint, credential);
+
+        try {
+            this.session = connector.createSession();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        System.out.println(" url:" + configuration.getDataset().getDatastore().getUrl()
+                + " user:" + configuration.getDataset().getDatastore().getUsername()
+                + " pass:" + configuration.getDataset().getDatastore().getPassword()
+                + " query:" + configuration.getDataset().getQuery());
+
     }
 
     @BeforeGroup
     public void beforeGroup() {
-        // if the environment supports chunking this method is called at the beginning if a chunk
+        // if the environment supports chunking this method is called at the beginning
+        // if a chunk
         // it can be used to start a local transaction specific to the backend you use
         // Note: if you don't need it you can delete it
         System.out.println("CompanyOutputOutput#beforeGroup");
@@ -54,10 +85,31 @@ public class CompanyOutputOutput implements Serializable {
     public void onNext(
             @Input final Record defaultInput) {
         // this is the method allowing you to handle the input(s) and emit the output(s)
-        // after some custom logic you put here, to send a value to next element you can use an
+        // after some custom logic you put here, to send a value to next element you can
+        // use an
         // output parameter and call emit(value).
-        System.out.println(defaultInput.toString());
         System.out.println("CompanyOutputOutput#onNext");
+        System.out.println(defaultInput.toString());
+
+        var sql = configuration.getDataset().getQuery();
+        var variables = TgBindVariables.of().addInt("newColumn").addInt("newColumn1");
+        var parameterMapping = TgParameterMapping.of(variables);
+        try (var ps = this.session.createStatement(sql, parameterMapping)) {
+            var setting = TgTmSetting.ofAlways(TgTxOption.ofOCC());
+            var tm = session.createTransactionManager(setting);
+            tm.execute(transaction -> {
+                // TODO とりあえず型は固定。
+                var parameter = TgBindParameters.of()
+                        .addInt("newColumn", Integer.valueOf(defaultInput.getString("newColumn")))
+                        .addInt("newColumn1", Integer.valueOf(defaultInput.getString("newColumn1")));
+                int ret_i = transaction.executeAndGetCount(ps, parameter);
+                System.out.println("insert count =" + ret_i);
+            });
+        } catch (IOException | InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
     }
 
     @AfterGroup
@@ -73,5 +125,11 @@ public class CompanyOutputOutput implements Serializable {
         // release potential connections you created or data you cached
         // Note: if you don't need it you can delete it
         System.out.println("CompanyOutputOutput#release");
+        try {
+            this.session.close();
+        } catch (IOException | InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 }

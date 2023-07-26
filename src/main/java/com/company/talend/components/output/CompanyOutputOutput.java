@@ -22,6 +22,7 @@ import org.talend.sdk.component.api.record.Record;
 
 import com.company.talend.components.service.CompanyComponentService;
 import com.tsurugidb.iceaxe.TsurugiConnector;
+import com.tsurugidb.iceaxe.metadata.TgTableMetadata;
 import com.tsurugidb.iceaxe.session.TsurugiSession;
 import com.tsurugidb.iceaxe.sql.parameter.TgBindParameters;
 import com.tsurugidb.iceaxe.sql.parameter.TgBindVariables;
@@ -40,7 +41,7 @@ public class CompanyOutputOutput implements Serializable {
     private final CompanyComponentService service;
 
     private TsurugiSession session;
-    private TgBindParameters ps;
+    private TgTableMetadata metadata;
 
     public CompanyOutputOutput(@Option("configuration") final CompanyOutputOutputConfiguration configuration,
             final CompanyComponentService service) {
@@ -58,10 +59,21 @@ public class CompanyOutputOutput implements Serializable {
         var endpoint = URI.create("tcp://" + configuration.getDataset().getDatastore().getUrl());
         var credential = new UsernamePasswordCredential("user", "password");
         var connector = TsurugiConnector.of(endpoint, credential);
+        var tableName = configuration.getDataset().getTableName();
 
         try {
             this.session = connector.createSession();
-        } catch (IOException e) {
+            var metaOpt = this.session.findTableMetadata(tableName);
+            if (metaOpt.isPresent()){
+                this.metadata = metaOpt.get();
+                for(var col:metadata.getLowColumnList()){
+                    System.out.println(col.toString());
+                }
+            }else{
+                //  エラーにすべきところ。
+                System.out.println("******** error not metadata *********");
+            }
+        } catch (IOException | InterruptedException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
@@ -89,21 +101,30 @@ public class CompanyOutputOutput implements Serializable {
         // use an
         // output parameter and call emit(value).
         System.out.println("CompanyOutputOutput#onNext");
-        System.out.println(defaultInput.toString());
+        System.out.println("defaultInput" + defaultInput.toString());
 
         var sql = configuration.getDataset().getQuery();
-        var variables = TgBindVariables.of().addInt("newColumn").addInt("newColumn1");
+        var variables = TgBindVariables.of();//.addInt("newColumn").addInt("newColumn1");
+        for(var col:metadata.getLowColumnList()){
+            variables.addInt(col.getName());
+            System.out.println(col.toString());
+        }
         var parameterMapping = TgParameterMapping.of(variables);
         try (var ps = this.session.createStatement(sql, parameterMapping)) {
             var setting = TgTmSetting.ofAlways(TgTxOption.ofOCC());
             var tm = session.createTransactionManager(setting);
             tm.execute(transaction -> {
                 // TODO とりあえず型は固定。
-                var parameter = TgBindParameters.of()
-                        .addInt("newColumn", Integer.valueOf(defaultInput.getString("newColumn")))
-                        .addInt("newColumn1", Integer.valueOf(defaultInput.getString("newColumn1")));
+                var parameter = TgBindParameters.of();
+                for(var col:metadata.getLowColumnList()){
+                    if(col.getAtomTypeValue() == 4){
+                        parameter = parameter.addInt(col.getName(), Integer.valueOf(defaultInput.getInt(col.getName())));
+                    }
+                }
+                //         .addInt("newColumn", Integer.valueOf(defaultInput.getString("newColumn")))
+                //         .addInt("newColumn1", Integer.valueOf(defaultInput.getString("newColumn1")));
                 int ret_i = transaction.executeAndGetCount(ps, parameter);
-                System.out.println("insert count =" + ret_i);
+                System.out.println(configuration.getTransactionMode() + " count =" + ret_i);
             });
         } catch (IOException | InterruptedException e) {
             // TODO Auto-generated catch block

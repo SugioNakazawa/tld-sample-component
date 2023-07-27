@@ -31,6 +31,8 @@ import com.tsurugidb.iceaxe.sql.parameter.TgParameterMapping;
 import com.tsurugidb.iceaxe.transaction.manager.TgTmSetting;
 import com.tsurugidb.iceaxe.transaction.manager.TsurugiTransactionManager;
 import com.tsurugidb.iceaxe.transaction.option.TgTxOption;
+import com.tsurugidb.sql.proto.SqlCommon.AtomType;
+import com.tsurugidb.sql.proto.SqlCommon.Column;
 import com.tsurugidb.tsubakuro.channel.common.connection.UsernamePasswordCredential;
 
 @Version(1) // default version is 1, if some configuration changes happen between 2 versions
@@ -44,7 +46,7 @@ public class CompanyOutputOutput implements Serializable {
 
     private TsurugiSession session;
     private TgTableMetadata metadata;
-    //  TODO この書き方で良いか？
+    // TODO この書き方で良い？
     private TsurugiSqlPreparedStatement<TgBindParameters> ps;
     private TsurugiTransactionManager tm;
 
@@ -72,13 +74,14 @@ public class CompanyOutputOutput implements Serializable {
             if (metaOpt.isPresent()) {
                 this.metadata = metaOpt.get();
             } else {
-                // エラーにすべきところ。
+                // TODO エラーにすべきところ。
                 System.out.println("******** error not metadata *********");
             }
             var sql = configuration.getDataset().getQuery();
             var variables = TgBindVariables.of();
             for (var col : metadata.getLowColumnList()) {
-                variables.addInt(col.getName());
+                variables = addColumnToBindValiables(variables, col);
+                // variables.addInt(col.getName());
             }
             var parameterMapping = TgParameterMapping.of(variables);
             this.ps = this.session.createStatement(sql, parameterMapping);
@@ -97,6 +100,23 @@ public class CompanyOutputOutput implements Serializable {
             System.out.println(col.toString());
         }
 
+    }
+
+    private TgBindVariables addColumnToBindValiables(TgBindVariables variables, Column col) {
+        switch (col.getAtomTypeValue()) {
+            case AtomType.INT4_VALUE:
+                variables = variables.addInt(col.getName());
+                break;
+            case AtomType.CHARACTER_VALUE:
+                variables = variables.addString(col.getName());
+                break;
+            case AtomType.DATE_VALUE:
+                variables = variables.addDate(col.getName());
+                break;
+            default:
+                System.out.println("not support type addColumnToBindValiables");
+        }
+        return variables;
     }
 
     @BeforeGroup
@@ -122,19 +142,37 @@ public class CompanyOutputOutput implements Serializable {
                 // TODO StudioのOutputコンポーネントで設定するスキーマのカラム名はInputもOutputもDBと合わせることを前提
                 var parameter = TgBindParameters.of();
                 for (var col : this.metadata.getLowColumnList()) {
-                    if (col.getAtomTypeValue() == 4) {
-                        parameter = parameter.addInt(col.getName(),
-                                Integer.valueOf(defaultInput.getInt(col.getName())));
-                    }
+                    parameter = addColumnToParam(parameter, col, defaultInput);
                 }
+                System.out.println("param:" + parameter.toString());
                 int ret_i = transaction.executeAndGetCount(this.ps, parameter);
-                System.out.println(configuration.getTransactionMode() + " count =" + ret_i);
+                //  なぜかいつも -1
+                System.out.println("executed count =" + ret_i);
             });
         } catch (IOException | InterruptedException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+    }
 
+    private TgBindParameters addColumnToParam(TgBindParameters parameter, Column col, Record defaultInput) {
+        switch (col.getAtomTypeValue()) {
+            case AtomType.INT4_VALUE:
+                parameter = parameter.addInt(col.getName(),
+                        Integer.valueOf(defaultInput.getInt(col.getName())));
+                break;
+            case AtomType.CHARACTER_VALUE:
+                parameter = parameter.addString(col.getName(),
+                        defaultInput.getString(col.getName()));
+                break;
+            case AtomType.DATE_VALUE:
+                parameter = parameter.addDate(col.getName(),
+                        defaultInput.getDateTime(col.getName()).toLocalDate());
+                break;
+            default:
+                System.out.println("not support tyoe:" + col.toString() + " value:" + col.getAtomTypeValue());
+        }
+        return parameter;
     }
 
     @AfterGroup

@@ -22,7 +22,7 @@ public class CompanyOutputOutputConfiguration implements Serializable {
 
     @Option
     @Documentation("TODO fill the documentation for this parameter")
-    private TransactionMode transactionMode = TransactionMode.Insert;
+    private TransactionMode transactionMode = TransactionMode.Occ;
 
     public CustomDataset getDataset() {
         return dataset;
@@ -43,8 +43,8 @@ public class CompanyOutputOutputConfiguration implements Serializable {
     }
 
     public enum TransactionMode {
-        Insert,
-        Update,
-        Delete
+        Occ,
+        Ltx,
+        OccLtx
     }
 }
